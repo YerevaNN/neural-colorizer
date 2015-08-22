@@ -3,6 +3,10 @@ import lasagne
 import lasagne.layers as layers
 import our_layers
 
+lr_policy = 'geom'
+lr_base = 0.0004
+lr_step = 20
+lr_coef = 0.8
 
 def define_model(input_var, **kwargs):
     """ Defines the model and returns (network, validation network output)
