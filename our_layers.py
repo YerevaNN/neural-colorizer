@@ -9,8 +9,8 @@ class Unpool2DLayer(layers.Layer):
     """
     def __init__(self, incoming, kernel_size, **kwargs):
         """
-            note: kernel_size = stride and kernel is square for simplicity
-            kernel_size must be int
+        note: kernel_size = stride and kernel is square for simplicity
+        kernel_size must be int
         """
         super(Unpool2DLayer, self).__init__(incoming, **kwargs)
         self.kernel_size = kernel_size
@@ -35,8 +35,8 @@ class GreyscaleLayer(layers.Layer):
     """
     def __init__(self, incoming, random_greyscale = False, random_seed = 123, **kwargs):
         """
-            input for this layer is 4D tensor
-            incoming is considered to have shape : (index, channel, height, width)
+        input for this layer is 4D tensor
+        incoming is considered to have shape : (index, channel, height, width)
         """
 
         super(GreyscaleLayer, self).__init__(incoming, **kwargs)
@@ -51,5 +51,11 @@ class GreyscaleLayer(layers.Layer):
         return tuple(output_shape)
 
 
-    def get_output_for(self, input, **kwargs):
-        return get_greyscale(input, self.random_greyscale, self.rng)
+    def get_output_for(self, input, deterministic_greyscale = False, **kwargs):
+        """ 
+        'deterministic_greyscale' is designed to allow using deterministic
+        greyscale during validation
+        """
+        if (not deterministic_greyscale):
+            return get_greyscale(input, self.random_greyscale, self.rng)
+        return get_greyscale(input, False, self.rng)
