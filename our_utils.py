@@ -9,8 +9,8 @@ from deeplearningnet_utils import tile_raster_images
 
 def save_image_from_array(arr, file_name = 'image.png', directory = 'plots'):
 	"""
-		arr must be numpy.ndarray : (channel, height, width) or (1, channel, height, width)
-		there can be 3 channels or 1 channel
+	arr must be numpy.ndarray : (channel, height, width) or (1, channel, height, width)
+	there can be 3 channels or 1 channel
 	"""
 	
 	if (arr.dtype != 'uint8'):
@@ -34,13 +34,13 @@ def save_image_from_array(arr, file_name = 'image.png', directory = 'plots'):
 	
 def get_greyscale(images, random_greyscale = False, rng = None, rgb = False):
 	"""
-		images is 4D array of images (4D tensor or np.ndarray): (index, channel, height, width)
-		if use_random_params is True must provide rng
-		
-		if rgb=True the output will have 3 channels, otherwise 1 channel
-		
-		note: when images is T.tensor4 rng must be theano.tensor.RandomStreams
-							  np.array rng must be numpy.random
+	images is 4D array of images (4D tensor or np.ndarray): (index, channel, height, width)
+	if use_random_params is True must provide rng
+	
+	if rgb=True the output will have 3 channels, otherwise 1 channel
+	
+	note: when images is T.tensor4 rng must be theano.tensor.RandomStreams
+					     np.array rng must be numpy.random
 	"""
 	
 	cr = 0.29
@@ -72,9 +72,9 @@ def get_greyscale(images, random_greyscale = False, rng = None, rgb = False):
 	
 def print_samples(images, forward, model_name, epoch, suffix = '', columns = 1, directory = 'plots'):
 	""" 
-		images is an 4D array of images: (index, channel, height, width)
-		forward is a theano.function which maps images to outputs
-		note: images can be tensor4 or np.ndarray
+	images is an 4D array of images: (index, channel, height, width)
+	forward is a theano.function which maps images to outputs
+	note: images can be tensor4 or np.ndarray
 	"""
 
 	where = directory + "/samples_" + model_name
@@ -114,9 +114,46 @@ def print_samples(images, forward, model_name, epoch, suffix = '', columns = 1, 
 	image.save(where + '/' + image_name + suffix + ".png")
 	
 	
+def plot_filters(filters, model_name, epoch, suffix = '', max_num_filters = 100, columns = 1, repeat = 5, directory = 'plots'):
+	""" Plots filters of convolution layers
+		
+	filters is 4D nd.array (filter_index, channels, width, height), channels = 1 or 3
+	one filters size = repeat * kernerl size
+	"""
+	
+	where = directory + "/filters_" + model_name
+	if (not os.path.exists(where)):
+		os.makedirs(where)
+
+	num_filters = min(filters.shape[0], max_num_filters)
+	print "==> Printing %d images to %s" % (num_filters, where)
+	
+	filters = filters[0:num_filters]
+	filters = filters.repeat(repeat, axis = 2).repeat(repeat, axis = 3)
+	
+	if (filters.shape[1] == 3):
+		R = filters[..., 0, ..., ...]
+		G = filters[..., 1, ..., ...]
+		B = filters[..., 2, ..., ...]
+	else:
+		R = filters[..., 0, ..., ...]
+		G = R
+		B = R
+	
+	filters = tile_raster_images(
+		(R, G, B, None), 
+		filters.shape[2:], 
+		(-(-filters.shape[0] // columns), columns),
+		tile_spacing = (2, 2)
+	)
+	image = Image.fromarray(filters)
+	
+	image_name = "epoch %d" % epoch
+	image.save(where + '/' + image_name + suffix + ".png")
+	
+	
 def save_model(network, epoch, model_name, learning_rate = 0.0, directory = 'models'):
-	""" 
-		Saves networks parameters, epoch, learning_rate
+	""" Saves networks parameters, epoch, learning_rate
 	"""
 	params = layers.get_all_param_values(network)
 	file_name = model_name + "-ep" + str(epoch) + ".pickle"
@@ -139,9 +176,9 @@ def save_model(network, epoch, model_name, learning_rate = 0.0, directory = 'mod
 
 
 def load_model(network, file_name, directory = 'models'):
-	"""
-		Loades saved network and returns dictonary with keys epoch, learning_rate
-		Loades from root_dir/models/file_name
+	""" Loades saved network and returns dictonary with keys epoch, learning_rate
+	
+	Loades from root_dir/models/file_name
 	"""
 	file_path = directory + '/' + file_name
 	print "==> Loading model from %s" % file_path
