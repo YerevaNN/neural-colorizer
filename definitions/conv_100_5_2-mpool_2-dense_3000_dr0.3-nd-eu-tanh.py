@@ -3,6 +3,10 @@ import lasagne
 import lasagne.layers as layers
 import our_layers
 
+lr_policy = 'geom'
+lr_base = 0.0004
+lr_step = 20
+lr_coef = 0.8
 
 def define_model(input_var, **kwargs):
     """ Defines the model and returns (network, validation network output)
@@ -16,11 +20,16 @@ def define_model(input_var, **kwargs):
     -Use **kwargs to pass model specific parameters
     """
     
-    image_size = 32
-    conv_filter_count = 100
-    conv_filter_size = 5
-    pool_size = 2
+    conv1_filter_count = 100
+    conv1_filter_size = 5
+    pool1_size = 2
+    
     n_dense_units = 3000
+    
+    batch_size = input_var.shape[0]
+    image_size = 32
+    after_conv1 = image_size
+    after_pool1 = (after_conv1 + pool1_size - 1) // pool1_size
     
     input = layers.InputLayer(
         shape = (None, 3, image_size, image_size),
@@ -29,51 +38,58 @@ def define_model(input_var, **kwargs):
     
     greyscale_input = our_layers.GreyscaleLayer(
         incoming = input,
-        random_greyscale = True,
+        random_greyscale = False,
     )
     
     conv1 = layers.Conv2DLayer(
         incoming = greyscale_input,
-        num_filters = conv_filter_count,
-        filter_size = conv_filter_size,
+        num_filters = conv1_filter_count,
+        filter_size = conv1_filter_size,
         stride = 1,
-        nonlinearity = lasagne.nonlinearities.sigmoid,
+        pad = 'same',
+        nonlinearity = lasagne.nonlinearities.tanh,
     )
     
     pool1 = layers.MaxPool2DLayer(
         incoming = conv1,
-        pool_size = pool_size,
-        stride = pool_size,
-    ) 
-
+        pool_size = pool1_size,
+        stride = pool1_size,
+    )
+    
     dense1 = layers.DenseLayer(
-        incoming =pool1,
+        incoming = pool1,
         num_units = n_dense_units, 
-        nonlinearity = lasagne.nonlinearities.rectify,
+        nonlinearity = lasagne.nonlinearities.tanh,
+    )
+    
+    dense1 = layers.DropoutLayer(
+        incoming = dense1,
+        p = 0.3,
     )
     
     pre_unpool1 = layers.DenseLayer(
         incoming = dense1,
-        num_units = conv_filter_count * (image_size + conv_filter_size - 1) ** 2 / (pool_size * pool_size),
-        nonlinearity = lasagne.nonlinearities.linear,
+        num_units = conv1_filter_count * (after_pool1 ** 2),
+        nonlinearity = lasagne.nonlinearities.tanh,
     )
 
     pre_unpool1 = layers.ReshapeLayer(
         incoming = pre_unpool1, 
-        shape = (input_var.shape[0], conv_filter_count) + ((image_size + conv_filter_size - 1) / 2, (image_size + conv_filter_size - 1) / 2),
+        shape = (batch_size, conv1_filter_count) + (after_pool1, after_pool1),
     )
     
     unpool1 = our_layers.Unpool2DLayer(
         incoming = pre_unpool1,
-        kernel_size = 2,
+        kernel_size = pool1_size,
     )
 
     deconv1 = layers.Conv2DLayer(
         incoming = unpool1,
         num_filters = 3,
-        filter_size = conv_filter_size,
+        filter_size = conv1_filter_size,
         stride = 1,
-        nonlinearity = lasagne.nonlinearities.sigmoid,
+        pad = 'same',
+        nonlinearity = lasagne.nonlinearities.tanh,
     )
   
     output = layers.ReshapeLayer(
@@ -81,7 +97,7 @@ def define_model(input_var, **kwargs):
         shape = input_var.shape
     )
     
-    return (output, layers.get_output(output))
+    return (output, layers.get_output(output, deterministic = True))
 
 
 def get_cost_updates(network, input_var, output, learning_rate, **kwargs):
@@ -98,22 +114,21 @@ def get_cost_updates(network, input_var, output, learning_rate, **kwargs):
     batch_size = input_var.shape[0]
     flat_input = input_var.reshape((batch_size, 3072))
     flat_output= output.reshape((batch_size, 3072))
-    
+
+    # scale flat_output to [0, 1]
+    flat_output = (flat_output + 1) / 2
+
     # cross entrophy loss
-    losses = -T.sum(flat_input * T.log(flat_output) + (1 - flat_input) * T.log(1 - flat_output), axis = 1) 
+    #losses = -T.sum(flat_input * T.log(flat_output) + (1 - flat_input) * T.log(1 - flat_output), axis = 1) 
      
+    # euclidean loss
+    losses = T.sum((flat_input - flat_output) ** 2, axis = 1)
+    
     # add saturation loss
     #saturation = -T.sum(T.std(T.reshape(flat_output, (batch_size, 3, 1024)), axis = 1), axis = 1)
     #losses = losses + 0.2 * saturation
 
     cost = T.mean(losses)
-    
-    # add weight decay
-    cost = cost + 0.001 * lasagne.regularization.regularize_network_params(
-        layer = network,
-        penalty = lasagne.regularization.l2,
-    )
-    
     gradients = T.grad(cost, params)
 
     # stochastic gradient descent

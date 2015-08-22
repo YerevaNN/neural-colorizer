@@ -1,3 +1,7 @@
-rg - random_greyscale
-ec - extra connection from greyscale to output
-wd - weight decay
+rg   - random_greyscale
+ec   - extra connection from greyscale to output
+wd   - weight decay
+nd   - new decoder (conv/deconv layers don't change image size)
+eu   - euclidean loss
+tanh - tanh activation, default is sigmoid
+dr   - dropout

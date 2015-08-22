@@ -16,11 +16,16 @@ def define_model(input_var, **kwargs):
     -Use **kwargs to pass model specific parameters
     """
     
-    image_size = 32
-    conv_filter_count = 100
-    conv_filter_size = 5
-    pool_size = 2
+    conv1_filter_count = 100
+    conv1_filter_size = 5
+    pool1_size = 2
+    
     n_dense_units = 3000
+    
+    batch_size = input_var.shape[0]
+    image_size = 32
+    after_conv1 = image_size
+    after_pool1 = (after_conv1 + pool1_size - 1) // pool1_size
     
     input = layers.InputLayer(
         shape = (None, 3, image_size, image_size),
@@ -34,45 +39,47 @@ def define_model(input_var, **kwargs):
     
     conv1 = layers.Conv2DLayer(
         incoming = greyscale_input,
-        num_filters = conv_filter_count,
-        filter_size = conv_filter_size,
+        num_filters = conv1_filter_count,
+        filter_size = conv1_filter_size,
         stride = 1,
+        pad = 'same',
         nonlinearity = lasagne.nonlinearities.sigmoid,
     )
     
     pool1 = layers.MaxPool2DLayer(
         incoming = conv1,
-        pool_size = pool_size,
-        stride = pool_size,
-    ) 
-
+        pool_size = pool1_size,
+        stride = pool1_size,
+    )
+    
     dense1 = layers.DenseLayer(
-        incoming =pool1,
+        incoming = pool1,
         num_units = n_dense_units, 
         nonlinearity = lasagne.nonlinearities.rectify,
     )
     
     pre_unpool1 = layers.DenseLayer(
         incoming = dense1,
-        num_units = conv_filter_count * (image_size + conv_filter_size - 1) ** 2 / (pool_size * pool_size),
+        num_units = conv1_filter_count * (after_pool1 ** 2),
         nonlinearity = lasagne.nonlinearities.linear,
     )
 
     pre_unpool1 = layers.ReshapeLayer(
         incoming = pre_unpool1, 
-        shape = (input_var.shape[0], conv_filter_count) + ((image_size + conv_filter_size - 1) / 2, (image_size + conv_filter_size - 1) / 2),
+        shape = (batch_size, conv1_filter_count) + (after_pool1, after_pool1),
     )
     
     unpool1 = our_layers.Unpool2DLayer(
         incoming = pre_unpool1,
-        kernel_size = 2,
+        kernel_size = pool1_size,
     )
 
     deconv1 = layers.Conv2DLayer(
         incoming = unpool1,
         num_filters = 3,
-        filter_size = conv_filter_size,
+        filter_size = conv1_filter_size,
         stride = 1,
+        pad = 'same',
         nonlinearity = lasagne.nonlinearities.sigmoid,
     )
   
@@ -107,13 +114,6 @@ def get_cost_updates(network, input_var, output, learning_rate, **kwargs):
     #losses = losses + 0.2 * saturation
 
     cost = T.mean(losses)
-    
-    # add weight decay
-    cost = cost + 0.001 * lasagne.regularization.regularize_network_params(
-        layer = network,
-        penalty = lasagne.regularization.l2,
-    )
-    
     gradients = T.grad(cost, params)
 
     # stochastic gradient descent

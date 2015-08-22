@@ -44,7 +44,7 @@ def define_model(input_var, **kwargs):
         incoming = conv1,
         pool_size = pool_size,
         stride = pool_size,
-    ) 
+    )
 
     dense1 = layers.DenseLayer(
         incoming =pool1,
@@ -109,10 +109,13 @@ def get_cost_updates(network, input_var, output, learning_rate, **kwargs):
     cost = T.mean(losses)
     
     # add weight decay
-    cost = cost + 0.001 * lasagne.regularization.regularize_network_params(
-        layer = network,
-        penalty = lasagne.regularization.l2,
-    )
+    reg = sum(T.sum(p ** 2) for p in params)
+    cost = cost + 0.01 * reg
+    
+    #cost = cost + 0.01 * lasagne.regularization.regularize_network_params(
+    #    layer = network,
+    #    penalty = lasagne.regularization.l2,
+    #)
     
     gradients = T.grad(cost, params)
 

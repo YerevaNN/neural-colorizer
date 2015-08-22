@@ -109,7 +109,7 @@ def get_cost_updates(network, input_var, output, learning_rate, **kwargs):
     cost = T.mean(losses)
     
     # add weight decay
-    cost = cost + 0.001 * lasagne.regularization.regularize_network_params(
+    cost = cost + 0.1 * lasagne.regularization.regularize_network_params(
         layer = network,
         penalty = lasagne.regularization.l2,
     )

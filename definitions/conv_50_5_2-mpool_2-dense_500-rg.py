@@ -4,9 +4,16 @@ import lasagne.layers as layers
 import our_layers
 
 
-def define_model(input_var):
-    """
-    Here goes the definition of the network
+def define_model(input_var, **kwargs):
+    """ Defines the model and returns (network, validation network output)
+        
+    -Return layers.get_output(final_layer_name) if validation network output and 
+        train network output are the same
+    
+    -For example, return layers.get_output(final_layer_name, deterministic = true) 
+        if there is a dropout layer
+            
+    -Use **kwargs to pass model specific parameters
     """
     
     image_size = 32
@@ -74,12 +81,18 @@ def define_model(input_var):
         shape = input_var.shape
     )
     
-    return output
+    return (output, layers.get_output(output))
 
 
-def get_cost_updates(network, input_var, learning_rate):
+def get_cost_updates(network, input_var, output, learning_rate, **kwargs):
+    """ Defines and returns cost and updates of the network
 
-    output = layers.get_output(network)
+    -output can be different from layers.get_output(network), because train 
+        and validation networks may differ from each other
+    
+    -Use **kwargs to pass model specific parameters
+    """
+    
     params = layers.get_all_params(network, trainable = True)
 
     batch_size = input_var.shape[0]
@@ -102,7 +115,7 @@ def get_cost_updates(network, input_var, learning_rate):
     #    for param, gradient in zip(params, gradients)
     #]
     
-    # rmsprpo
+    # rmsprop
     #updates = lasagne.updates.rmsprop(gradients, params, learning_rate = learning_rate)
     
     # momentum
