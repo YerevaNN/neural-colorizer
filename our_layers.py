@@ -1,3 +1,4 @@
+import lasagne
 from lasagne import layers
 import theano.tensor as T
 from our_utils import get_greyscale
@@ -7,13 +8,15 @@ class Unpool2DLayer(layers.Layer):
     This layer performs unpooling over the last two dimensions
     of a 4D tensor.
     """
-    def __init__(self, incoming, kernel_size, **kwargs):
+    def __init__(self, incoming, kernel_size, 
+        nonlinearity = lasagne.nonlinearities.linear, **kwargs):
         """
         note: kernel_size = stride and kernel is square for simplicity
         kernel_size must be int
         """
         super(Unpool2DLayer, self).__init__(incoming, **kwargs)
         self.kernel_size = kernel_size
+        self.nonlinearity = nonlinearity
 
 
     def get_output_shape_for(self, input_shape):
@@ -26,7 +29,7 @@ class Unpool2DLayer(layers.Layer):
     def get_output_for(self, input, **kwargs):
         input_shape = input.shape
         output_shape = self.get_output_shape_for(input_shape)
-        return input.repeat(self.kernel_size, axis = 2).repeat(self.kernel_size, axis = 3)
+        return self.nonlinearity(input.repeat(self.kernel_size, axis = 2).repeat(self.kernel_size, axis = 3))
         
 
 class GreyscaleLayer(layers.Layer):
